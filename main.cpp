@@ -1,7 +1,6 @@
 //A single monolithic script
 #include <iostream>
 #include <chrono>
-#include <format>
 #include <fstream>
 #include <tuple>
 #include <unordered_map>
@@ -49,18 +48,18 @@ const int dieWeightsSum = 21; //remember to update this if dieWeights is modifie
 /**************************************************************************************
  * init
 **************************************************************************************/
-std::vector<Dices> precomputeDiceIndexes () {
+auto precomputeDiceIndexes () {
     std::vector<Dices> idxToDices;
     idxToDices.reserve(462);
 
     auto generateFreq = [&idxToDices] (
-        int pos,
+        std::size_t pos,
         int remaining, //sum of remaining
         Dices& freq,
         auto&& self
     ) {
         if (pos == 5) {
-            freq[5] == remaining;
+            freq[5] = remaining;
             idxToDices.push_back(freq);
             return;
         }
@@ -87,13 +86,13 @@ struct rollOutcome {
     double probability;
 };
 auto precomputeRollOutcomesByIdx(std::vector<Dices> idxToDices) {
-    std::array<int, 7> factorials = {1, 1, 2, 6, 24, 120, 720};
+    int factorials[] = {1, 1, 2, 6, 24, 120, 720};
     using Row = std::vector<rollOutcome>;
 
     std::array<Row, 6> table;
-    for (int dicesIdx = 0; dicesIdx < idxToDices.size(); dicesIdx++) {
+    for (std::size_t dicesIdx = 0; dicesIdx < idxToDices.size(); dicesIdx++) {
         Dices dices = idxToDices[dicesIdx];
-        int i = 0; for (int e: dices) {i += e;}
+        std::size_t i = 0; for (int e: dices) {i += e;}
         
         int prod_i = 1; for (int e: dices) {prod_i *= factorials[e];}
         int permutations = factorials[i] / prod_i;
@@ -104,7 +103,7 @@ auto precomputeRollOutcomesByIdx(std::vector<Dices> idxToDices) {
         }
         double probability = permutations * prod_d;
 
-        table[i].push_back(rollOutcome{dicesIdx, probability});
+        table[i].push_back(rollOutcome{static_cast<int> (dicesIdx), probability});
     }
 
     return table;
@@ -114,32 +113,33 @@ auto precomputeRollOutcomesByIdx(std::vector<Dices> idxToDices) {
 
 auto precomputeAvailableRerollsByIdx(std::vector<Dices> idxToDices) {
     std::array<std::vector<Dices>, 252> table;
-    for (int dicesIdx = 0; dicesIdx < 252; dicesIdx++) {
+
+    std::vector<Dices> availableRerolls;
+
+    auto generateRerolls = [&availableRerolls] (
+        std::size_t idx,
+        const Dices& dices,
+        Dices current,
+        auto&& self
+    ) {
+        if (idx == 6) {
+            availableRerolls.push_back(current);
+            return;
+        }
+
+        for (int i = 0; i <= dices[idx]; i++) {
+            current[idx] = i;
+            self(idx + 1, dices, current, self);
+        }
+    };
+
+
+    for (std::size_t dicesIdx = 0; dicesIdx < 252; dicesIdx++) {
         Dices dices = idxToDices[dicesIdx];
         {
             int sum = 0; for (int e: dices) {sum += e;}
             assert(sum == 5);
         }
-
-
-        std::vector<Dices> availableRerolls;
-
-        auto generateRerolls = [&availableRerolls] (
-            int idx,
-            const Dices& dices,
-            Dices current,
-            auto&& self
-        ) {
-            if (idx == 6) {
-                availableRerolls.push_back(current);
-                return;
-            }
-
-            for (int i = 0; i <= dices[idx]; i++) {
-                current[idx] = i;
-                self(idx + 1, dices, current, self);
-            }
-        };
 
         Dices current{};
         generateRerolls(0, dices, current, generateRerolls);
