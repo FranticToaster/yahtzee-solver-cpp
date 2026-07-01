@@ -1,18 +1,20 @@
 //A single monolithic script
 #include <iostream>
 #include <chrono>
+#include <sstream>
 #include <fstream>
-#include <tuple>
-#include <unordered_map>
 #include <array>
 #include <vector>
 #include <cassert>
+#include <utility>
+#include <unordered_map>
+#include <iomanip>
 
 
 /**************************************************************************************
  * locals
 **************************************************************************************/
-enum class Category {
+enum Category {
     ONES = 0,
     TWOS,
     THREES,
@@ -48,11 +50,26 @@ const int dieWeightsSum = 21; //remember to update this if dieWeights is modifie
 /**************************************************************************************
  * init
 **************************************************************************************/
-auto precomputeDiceIndexes () {
-    std::vector<Dices> idxToDices;
-    idxToDices.reserve(462);
+auto hashDices(const Dices& dices) {
+    return (
+        dices[0]
+        + dices[1] * 6
+        + dices[2] * 36
+        + dices[3] * 216
+        + dices[4] * 1296
+        + dices[5] * 7776
+    );
+}
 
-    auto generateFreq = [&idxToDices] (
+
+
+// avoid using dicesHashToIdx where possible
+auto precomputeDiceIndexes () {
+    int dicesIdx = 0;
+    std::array<Dices, 462> idxToDices;
+    std::unordered_map<int, int> dicesHashToIdx;
+
+    auto generateFreq = [&dicesIdx, &idxToDices, &dicesHashToIdx] (
         std::size_t pos,
         int remaining, //sum of remaining
         Dices& freq,
@@ -60,7 +77,9 @@ auto precomputeDiceIndexes () {
     ) {
         if (pos == 5) {
             freq[5] = remaining;
-            idxToDices.push_back(freq);
+            idxToDices[static_cast<std::size_t> (dicesIdx)] = freq;
+            dicesHashToIdx[hashDices(freq)] = dicesIdx;
+            dicesIdx++;
             return;
         }
 
@@ -77,15 +96,16 @@ auto precomputeDiceIndexes () {
         generateFreq(0, i, freq, generateFreq);
     }
 
-    return idxToDices;
+    return std::make_pair(idxToDices, dicesHashToIdx);
 }
+
 
 
 struct rollOutcome {
     int dicesIdx;
     double probability;
 };
-auto precomputeRollOutcomesByIdx(std::vector<Dices> idxToDices) {
+auto precomputeRollOutcomesByIdx (std::array<Dices, 462> idxToDices) {
     int factorials[] = {1, 1, 2, 6, 24, 120, 720};
     using Row = std::vector<rollOutcome>;
 
@@ -111,7 +131,7 @@ auto precomputeRollOutcomesByIdx(std::vector<Dices> idxToDices) {
 
 
 
-auto precomputeAvailableRerollsByIdx(std::vector<Dices> idxToDices) {
+auto precomputeAvailableRerollsByIdx (std::array<Dices, 462> idxToDices) {
     std::array<std::vector<Dices>, 252> table;
 
     std::vector<Dices> availableRerolls;
@@ -151,9 +171,107 @@ auto precomputeAvailableRerollsByIdx(std::vector<Dices> idxToDices) {
 
 
 
+auto precomputeDicesAdditionByIdx (
+    std::array<Dices, 462> idxToDices,
+    std::unordered_map<int, int> dicesHashToIdx
+) {
+    using Row = std::array<int, 462>;
+
+    std::array<Row, 462> table;
+
+    for (std::size_t i = 0; i < 462; i++) {
+        Row row;
+
+        Dices dices_i = idxToDices[i];
+        for (std::size_t j = 0; j < 462; j++) {
+            Dices dices_j = idxToDices[j];
+
+            Dices newDices; int sum = 0;
+            for (std::size_t k = 0; k < 6; k++) {
+                newDices[k] = dices_i[k] + dices_j[k];
+                sum += newDices[k];
+            }
+
+            if (sum > 5){
+                continue;
+            }
+
+
+            row[j] = dicesHashToIdx[hashDices(newDices)];
+        }
+
+        table[i] = row;
+    }
+
+    return table;
+}
+
+
+
+/**************************************************************************************
+ *game
+**************************************************************************************/
+struct Game {
+    int turns_left = 13;
+    int used_categories = 0;
+    int upper_section_score = 0;
+    Dices dices = {0, 0, 0, 0, 0, 0};
+    int rolls_left = 3;
+};
+
+struct GameWithDiceAsIndex {
+    int turns_left = 13;
+    int used_categories = 0;
+    int upper_section_score = 0;
+    int dices_idx = 999;
+    int rolls_left = 3;
+};
+
+
+enum accessIndexes {
+    TURNS_LEFT = 0,
+    USED_CATEGORIES_ = 1,
+    UPPER_SECTION_SCORE = 2,
+    DICES = 3,
+    ROLLS_LEFT = 4
+};
+
+
+
+bool moveFitsReq (
+    Category category,
+    Dices dices
+) {
+    if (ONES <= category && category <= SIXES) {
+        return dices[category] > 0;
+    }
+}
 
 
 
 int main() {
-	
+    std::ostringstream logs;
+
+    //init
+    logs << "Precomputation started.\n";
+    auto start_time = std::chrono::steady_clock::now();
+
+    auto dicesIndex = precomputeDiceIndexes();
+    auto idxToDices = dicesIndex.first;
+    auto dicesHashToIdx = dicesIndex.second;
+    auto rollOutcomesByIdx = precomputeRollOutcomesByIdx(idxToDices);
+    auto availableRerolls = precomputeAvailableRerollsByIdx(idxToDices);
+    auto dicesAdditionByIdx = precomputeDicesAdditionByIdx(idxToDices, dicesHashToIdx);
+
+    logs << "Precomputation complete.\n";
+    auto end_time = std::chrono::steady_clock::now();
+    std::chrono::duration<double> time_taken_seconds = end_time - start_time;
+    logs << "Precomputation took a total of ";
+    logs << std::fixed << std::setprecision(2) << time_taken_seconds.count() << 's';
+
+
+
+
+
+
 }
