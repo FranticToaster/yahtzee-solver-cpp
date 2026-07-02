@@ -4,11 +4,18 @@
 #include <sstream>
 #include <fstream>
 #include <array>
+#include <stdexcept>
 #include <vector>
 #include <cassert>
 #include <utility>
 #include <unordered_map>
 #include <iomanip>
+#include <algorithm>
+
+
+
+std::ostringstream logs;
+
 
 
 /**************************************************************************************
@@ -244,14 +251,56 @@ bool moveFitsReq (
 ) {
     if (ONES <= category && category <= SIXES) {
         return dices[category] > 0;
+    } else if (category == SMALL_STRAIGHT) {
+        for (std::size_t i = 0; i < 3; i++) {
+            bool fulfils = true;
+            for (std::size_t j = i; j < i + 4; j++) {
+                if (dices[j] == 0) {
+                    fulfils = false;
+                    break;
+                }
+            }
+
+            if (fulfils) return true;
+        }
+        return false;
+    } else if (category == LARGE_STRAIGHT) {
+        return dices == std::array<int,6>{1,1,1,1,1,0} ||
+               dices == std::array<int,6>{0,1,1,1,1,1};
+    } else if (category == THREE_OF_A_KIND) {
+        for (int count: dices) {
+            if (count >= 3) return true;
+        }
+        return false;
+    } else if (category == FOUR_OF_A_KIND) {
+        for (int count: dices) {
+            if (count >= 4) return true;
+        }
+        return false;
+    } else if (category == FULL_HOUSE) {
+        bool twoInDices = false;
+        bool threeInDices = false;
+        for (int val: dices) {
+            if (val == 2) twoInDices = true;
+            if (val == 3) threeInDices = true;
+        }
+        return twoInDices && threeInDices;
+    } else if (category == CHANCE) {
+        return true;
+    } else if (category == YAHTZEE) {
+        for (int count: dices) {
+            if (count == 5) return true;
+        }
+        return false;
+    } else {
+        logs << "Invalid category passed to moveFitsReq: " << category << '\n';
+        return false;
     }
 }
 
 
 
 int main() {
-    std::ostringstream logs;
-
     //init
     logs << "Precomputation started.\n";
     auto start_time = std::chrono::steady_clock::now();
