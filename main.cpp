@@ -1,4 +1,5 @@
 //A single monolithic script
+#include <cstdint>
 #include <iostream>
 #include <chrono>
 #include <sstream>
@@ -11,6 +12,8 @@
 #include <iomanip>
 #include <cmath>
 
+
+// score type should default to int and only use float in actual solver
 
 
 std::ostringstream logs;
@@ -49,7 +52,7 @@ using Dices = std::array<int, 6>;
 /**************************************************************************************
  * config
 **************************************************************************************/
-const std::array<Score, 13> constScoreCategories = {0,0,0,0,0,0,30,40,0,0,25,0,0};
+const std::array<int, 13> constScoreCategories = {0,0,0,0,0,0,30,40,0,0,25,0,0};
 const bool yahtzeeBonus = false;
 const std::array<int, 6> dieWeights = {6, 5, 4, 3, 2, 1};
 const int dieWeightsSum = 21; //remember to update this if dieWeights is modified!!!!!!!!
@@ -227,7 +230,7 @@ auto precomputeDicesAdditionByIdx (
 struct Game {
     int turns_left = 13;
     int used_categories = 0;
-    Score upper_section_score = 0.0;
+    int upper_section_score = 0;
     Dices dices = {0, 0, 0, 0, 0, 0};
     int rolls_left = 3;
 };
@@ -235,9 +238,19 @@ struct Game {
 struct GameWithDiceAsIndex {
     int turns_left = 13;
     int used_categories = 0;
-    Score upper_section_score = 0.0;
-    int dices_idx = 999;
+    int upper_section_score = 0;
+    int dices_idx = 255;
     int rolls_left = 3;
+
+    std::uint64_t hash() {
+        return (
+            std::uint64_t(rolls_left)
+            | std::uint64_t(turns_left) << 2
+            | std::uint64_t(upper_section_score) << 6
+            | std::uint64_t(dices_idx) << 12
+            | std::uint64_t(used_categories) << 20
+        );
+    }
 };
 
 
@@ -255,7 +268,7 @@ bool moveFitsReq (
     Category category,
     Dices dices
 ) {
-    if (ONES <= category && category <= SIXES) {
+    if (category <= SIXES) {
         return dices[category] > 0;
     } else if (category == SMALL_STRAIGHT) {
         for (std::size_t i = 0; i < 3; i++) {
@@ -306,39 +319,42 @@ bool moveFitsReq (
 
 
 
-Score getMoveScore (
+int getMoveScore (
     Game game,
     Category category,
     Dices dices
 ) {
     if (!moveFitsReq(category, dices)) {
-        return 0.0;
+        return 0;
     }
 
-    const Score constScore = constScoreCategories[category];
+    const int constScore = constScoreCategories[category];
     if (!scoreClose(constScore, 0)) return constScore;
 
-    if (ONES <= category && category <= SIXES) {
-        return static_cast<double> (dices[category] * (category + 1));
+    if (category <= SIXES) {
+        return dices[category] * (category + 1);
     }
 
     if (category == YAHTZEE) {
         return (
             (yahtzeeBonus && (game.used_categories >> YAHTZEE) & 1)
-            ? 100.0
-            : 50.0
+            ? 100
+            : 50
         );
     }
 
-    Score sum = 0.0;
+    int sum = 0;
     for (std::size_t i = 0; i < 6; i++) {
-        sum += static_cast<double> (
+        sum += (
             game.dices[i]
             * static_cast<int> (i + 1)
         );
     }
     return sum;
 }
+
+
+
 
 
 
