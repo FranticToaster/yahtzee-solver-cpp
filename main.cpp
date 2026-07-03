@@ -379,8 +379,8 @@ auto claimCategory (
 
 
 inline auto getLegalClaims(Game game) {
-    std::vector<Category> categoriesAvailable;
-    for (Category i = ONES; i < YAHTZEE; i++) {
+    std::vector<int> categoriesAvailable;
+    for (int i = ONES; i < YAHTZEE; i++) {
         if (!(game.used_categories & (1 << i))) {
             categoriesAvailable.push_back(i);
         }
