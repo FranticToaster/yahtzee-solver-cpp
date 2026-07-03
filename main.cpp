@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <iomanip>
 #include <cmath>
+#include <algorithm>
 
 
 // score type should default to int and only use float in actual solver
@@ -254,15 +255,6 @@ struct GameWithDiceAsIndex {
 };
 
 
-enum accessIndexes {
-    TURNS_LEFT_INDEX = 0,
-    USED_CATEGORIES_INDEX = 1,
-    UPPER_SECTION_SCORE_INDEX = 2,
-    DICES_INDEX = 3,
-    ROLLS_LEFT_INDEX = 4
-};
-
-
 
 bool moveFitsReq (
     Category category,
@@ -353,6 +345,36 @@ int getMoveScore (
     return sum;
 }
 
+
+
+auto claimCategory (
+    Game game,
+    Category category
+) {
+    int upperSectionScore = game.upper_section_score;
+
+    int moveScore = getMoveScore(game, category, game.dices);
+    if (category <= SIXES) {
+        upperSectionScore = std::min(63, upperSectionScore + moveScore);
+    }
+
+
+    int usedCategories = game.used_categories | (1 << category);
+    int turnsLeft = game.turns_left - 1;
+    int dicesIdx = 255;
+    int rollsLeft = 3;
+
+    return std::make_pair(
+        GameWithDiceAsIndex{
+            turnsLeft,
+            usedCategories,
+            upperSectionScore,
+            dicesIdx,
+            rollsLeft
+        },
+        moveScore
+    );
+}
 
 
 
