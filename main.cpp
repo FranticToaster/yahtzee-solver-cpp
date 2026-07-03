@@ -4,18 +4,23 @@
 #include <sstream>
 #include <fstream>
 #include <array>
-#include <stdexcept>
 #include <vector>
 #include <cassert>
 #include <utility>
 #include <unordered_map>
 #include <iomanip>
-#include <algorithm>
+#include <cmath>
 
 
 
 std::ostringstream logs;
 
+
+using Score = double;
+const Score scoreEpsilon = 1e-9;
+inline bool scoreClose (Score a, Score b) {
+    return std::abs(a - b) <= scoreEpsilon;
+}
 
 
 /**************************************************************************************
@@ -44,7 +49,8 @@ using Dices = std::array<int, 6>;
 /**************************************************************************************
  * config
 **************************************************************************************/
-const std::array<int, 13> constScoreCategories = {0,0,0,0,0,0,30,40,0,0,25,0,0};
+const std::array<Score, 13> constScoreCategories = {0,0,0,0,0,0,30,40,0,0,25,0,0};
+const bool yahtzeeBonus = false;
 const std::array<int, 6> dieWeights = {6, 5, 4, 3, 2, 1};
 const int dieWeightsSum = 21; //remember to update this if dieWeights is modified!!!!!!!!
 //                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -221,7 +227,7 @@ auto precomputeDicesAdditionByIdx (
 struct Game {
     int turns_left = 13;
     int used_categories = 0;
-    int upper_section_score = 0;
+    Score upper_section_score = 0.0;
     Dices dices = {0, 0, 0, 0, 0, 0};
     int rolls_left = 3;
 };
@@ -229,18 +235,18 @@ struct Game {
 struct GameWithDiceAsIndex {
     int turns_left = 13;
     int used_categories = 0;
-    int upper_section_score = 0;
+    Score upper_section_score = 0.0;
     int dices_idx = 999;
     int rolls_left = 3;
 };
 
 
 enum accessIndexes {
-    TURNS_LEFT = 0,
-    USED_CATEGORIES_ = 1,
-    UPPER_SECTION_SCORE = 2,
-    DICES = 3,
-    ROLLS_LEFT = 4
+    TURNS_LEFT_INDEX = 0,
+    USED_CATEGORIES_INDEX = 1,
+    UPPER_SECTION_SCORE_INDEX = 2,
+    DICES_INDEX = 3,
+    ROLLS_LEFT_INDEX = 4
 };
 
 
@@ -296,6 +302,42 @@ bool moveFitsReq (
         logs << "Invalid category passed to moveFitsReq: " << category << '\n';
         return false;
     }
+}
+
+
+
+Score getMoveScore (
+    Game game,
+    Category category,
+    Dices dices
+) {
+    if (!moveFitsReq(category, dices)) {
+        return 0.0;
+    }
+
+    const Score constScore = constScoreCategories[category];
+    if (!scoreClose(constScore, 0)) return constScore;
+
+    if (ONES <= category && category <= SIXES) {
+        return static_cast<double> (dices[category] * (category + 1));
+    }
+
+    if (category == YAHTZEE) {
+        return (
+            (yahtzeeBonus && (game.used_categories >> YAHTZEE) & 1)
+            ? 100.0
+            : 50.0
+        );
+    }
+
+    Score sum = 0.0;
+    for (std::size_t i = 0; i < 6; i++) {
+        sum += static_cast<double> (
+            game.dices[i]
+            * static_cast<int> (i + 1)
+        );
+    }
+    return sum;
 }
 
 
