@@ -363,10 +363,12 @@ auto claimCategory (
 
     int moveScore = getMoveScore(game, category, game.dices);
     if (category <= SIXES) {
-        int newUpperSectionScore = upperSectionScore + moveScore;
-        if (newUpperSectionScore >= 63 && upperSectionScore < 63) {
+        int previousScore = upperSectionScore;
+        upperSectionScore += moveScore;
+
+        if (upperSectionScore >= 63) {
             upperSectionScore = 63;
-            moveScore += 35;
+            if (previousScore < 63) moveScore += 35;
         }
     }
 
