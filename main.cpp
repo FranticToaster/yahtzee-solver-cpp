@@ -13,12 +13,12 @@
 #include <cmath>
 
 
-// score type should default to int and only use float in actual solver
-
 
 std::ostringstream logs;
 
 
+
+// score type should default to int and only use float in actual solver
 using Score = double;
 const Score scoreEpsilon = 1e-9;
 inline bool scoreClose (Score a, Score b) {
@@ -42,7 +42,8 @@ enum Category {
     FOUR_OF_A_KIND,
     FULL_HOUSE,
     CHANCE,
-    YAHTZEE
+    YAHTZEE,
+    NONE
 };
 
 using Dices = std::array<int, 6>;
@@ -248,12 +249,12 @@ struct GameWithDiceAsIndex {
 
     std::uint64_t hash() const {
         return (
-            static_cast<std::uint64_t>(yahtzeeDisabled)
-            | static_cast<std::uint64_t>(rolls_left) << 1
-            | static_cast<std::uint64_t>(turns_left) << 3
-            | static_cast<std::uint64_t>(upper_section_score) << 7
-            | static_cast<std::uint64_t>(dices_idx) << 13
-            | static_cast<std::uint64_t>(used_categories) << 21
+            std::uint64_t(yahtzeeDisabled)
+            | std::uint64_t(rolls_left) << 1
+            | std::uint64_t(turns_left) << 3
+            | std::uint64_t(upper_section_score) << 7
+            | std::uint64_t(dices_idx) << 13
+            | std::uint64_t(used_categories) << 21
         );
     }
 };
@@ -305,8 +306,6 @@ bool moveFitsReq (
     } else if (category == CHANCE) {
         return true;
     } else if (category == YAHTZEE) {
-        if (game.yahtzeeDisabled) return false;
-
         for (int count: dices) {
             if (count == 5) return true;
         }
@@ -418,8 +417,30 @@ std::array<std::vector<Dices>, 252> availableRerolls;
 std::array<std::array<int, 462>, 462> dicesAdditionByIdx;
 
 
+int leaf_nodes_evaluated = 0;
+int total_nodes_evaluated = 0;
 
 
+int cache_hits = 0;
+int cache_misses = 0;
+std::unordered_map<std::uint64_t, Score> cache;
+// might consider using .reserve later on
+
+
+
+Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
+    total_nodes_evaluated += 1;
+
+    if (gameWithDiceAsIndex.turns_left == 0) {
+        leaf_nodes_evaluated += 1;
+        return 0;
+    }
+
+    auto gameHash = gameWithDiceAsIndex.hash();
+    if (auto it = cache.find(gameHash); it != cache.end()) {
+        return it->second;
+    }
+}
 
 
 
