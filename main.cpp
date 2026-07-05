@@ -11,7 +11,6 @@
 #include <unordered_map>
 #include <iomanip>
 #include <cmath>
-#include <algorithm>
 
 
 // score type should default to int and only use float in actual solver
@@ -182,6 +181,7 @@ auto precomputeAvailableRerollsByIdx (std::array<Dices, 462> idxToDices) {
         generateRerolls(0, dices, current, generateRerolls);
 
         table[dicesIdx] = availableRerolls;
+        availableRerolls.clear();
     }
     return table;
 }
@@ -198,6 +198,7 @@ auto precomputeDicesAdditionByIdx (
 
     for (std::size_t i = 0; i < 462; i++) {
         Row row;
+        row.fill(-1);
 
         Dices dices_i = idxToDices[i];
         for (std::size_t j = 0; j < 462; j++) {
@@ -234,6 +235,7 @@ struct Game {
     int upper_section_score = 0;
     Dices dices = {0, 0, 0, 0, 0, 0};
     int rolls_left = 3;
+    bool yahtzeeDisabled = false; // occurs when 0 is scored in yahtzee
 };
 
 struct GameWithDiceAsIndex {
@@ -242,14 +244,16 @@ struct GameWithDiceAsIndex {
     int upper_section_score = 0;
     int dices_idx = 255;
     int rolls_left = 3;
+    bool yahtzeeDisabled = false;
 
-    std::uint64_t hash() {
+    std::uint64_t hash() const {
         return (
-            std::uint64_t(rolls_left)
-            | std::uint64_t(turns_left) << 2
-            | std::uint64_t(upper_section_score) << 6
-            | std::uint64_t(dices_idx) << 12
-            | std::uint64_t(used_categories) << 20
+            std::uint64_t(yahtzeeDisabled)
+            | std::uint64_t(rolls_left) << 1
+            | std::uint64_t(turns_left) << 3
+            | std::uint64_t(upper_section_score) << 7
+            | std::uint64_t(dices_idx) << 13
+            | std::uint64_t(used_categories) << 21
         );
     }
 };
@@ -258,8 +262,10 @@ struct GameWithDiceAsIndex {
 
 bool moveFitsReq (
     Category category,
-    Dices dices
+    Game game
 ) {
+    auto dices = game.dices;
+
     if (category <= SIXES) {
         return dices[category] > 0;
     } else if (category == SMALL_STRAIGHT) {
@@ -299,6 +305,8 @@ bool moveFitsReq (
     } else if (category == CHANCE) {
         return true;
     } else if (category == YAHTZEE) {
+        if (game.yahtzeeDisabled) return false;
+
         for (int count: dices) {
             if (count == 5) return true;
         }
@@ -316,12 +324,12 @@ int getMoveScore (
     Category category,
     Dices dices
 ) {
-    if (!moveFitsReq(category, dices)) {
+    if (!moveFitsReq(category, game)) {
         return 0;
     }
 
     const int constScore = constScoreCategories[category];
-    if (!scoreClose(constScore, 0)) return constScore;
+    if (constScore != 0) return constScore;
 
     if (category <= SIXES) {
         return dices[category] * (category + 1);
@@ -338,7 +346,7 @@ int getMoveScore (
     int sum = 0;
     for (std::size_t i = 0; i < 6; i++) {
         sum += (
-            game.dices[i]
+            dices[i]
             * static_cast<int> (i + 1)
         );
     }
@@ -355,8 +363,17 @@ auto claimCategory (
 
     int moveScore = getMoveScore(game, category, game.dices);
     if (category <= SIXES) {
-        upperSectionScore = std::min(63, upperSectionScore + moveScore);
+        int newUpperSectionScore = upperSectionScore + moveScore;
+        if (newUpperSectionScore >= 63 && upperSectionScore < 63) {
+            upperSectionScore = 63;
+            moveScore += 35;
+        }
     }
+
+    bool yahtzeeDisabled = (
+        game.yahtzeeDisabled
+        || (category == YAHTZEE && moveScore == 0)
+    );
 
 
     int usedCategories = game.used_categories | (1 << category);
@@ -370,7 +387,8 @@ auto claimCategory (
             usedCategories,
             upperSectionScore,
             dicesIdx,
-            rollsLeft
+            rollsLeft,
+            yahtzeeDisabled
         },
         moveScore
     );
@@ -391,17 +409,27 @@ inline auto getLegalClaims(Game game) {
 
 
 
+std::array<std::array<int, 6>, 462> idxToDices;
+std::unordered_map<int, int> dicesHashToIdx;
+std::array<std::vector<rollOutcome>, 6> rollOutcomesByIdx;
+std::array<std::vector<Dices>, 252> availableRerolls;
+std::array<std::array<int, 462>, 462> dicesAdditionByIdx;
+
+
+
+
+
+
+
 int main() {
     //init
     logs << "Precomputation started.\n";
     auto start_time = std::chrono::steady_clock::now();
 
-    auto dicesIndex = precomputeDiceIndexes();
-    auto idxToDices = dicesIndex.first;
-    auto dicesHashToIdx = dicesIndex.second;
-    auto rollOutcomesByIdx = precomputeRollOutcomesByIdx(idxToDices);
-    auto availableRerolls = precomputeAvailableRerollsByIdx(idxToDices);
-    auto dicesAdditionByIdx = precomputeDicesAdditionByIdx(idxToDices, dicesHashToIdx);
+    std::tie(idxToDices, dicesHashToIdx) = precomputeDiceIndexes();
+    rollOutcomesByIdx = precomputeRollOutcomesByIdx(idxToDices);
+    availableRerolls = precomputeAvailableRerollsByIdx(idxToDices);
+    dicesAdditionByIdx = precomputeDicesAdditionByIdx(idxToDices, dicesHashToIdx);
 
     logs << "Precomputation complete.\n";
     auto end_time = std::chrono::steady_clock::now();
