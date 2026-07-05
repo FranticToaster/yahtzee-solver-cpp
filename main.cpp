@@ -248,12 +248,12 @@ struct GameWithDiceAsIndex {
 
     std::uint64_t hash() const {
         return (
-            std::uint64_t(yahtzeeDisabled)
-            | std::uint64_t(rolls_left) << 1
-            | std::uint64_t(turns_left) << 3
-            | std::uint64_t(upper_section_score) << 7
-            | std::uint64_t(dices_idx) << 13
-            | std::uint64_t(used_categories) << 21
+            static_cast<std::uint64_t>(yahtzeeDisabled)
+            | static_cast<std::uint64_t>(rolls_left) << 1
+            | static_cast<std::uint64_t>(turns_left) << 3
+            | static_cast<std::uint64_t>(upper_section_score) << 7
+            | static_cast<std::uint64_t>(dices_idx) << 13
+            | static_cast<std::uint64_t>(used_categories) << 21
         );
     }
 };
