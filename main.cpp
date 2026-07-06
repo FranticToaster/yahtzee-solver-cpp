@@ -70,11 +70,11 @@ const int dieWeightsSum = 21; //remember to update this if dieWeights is modifie
 auto hashDices(const Dices& dices) {
     return (
         dices[0]
-        + dices[1] * 6
-        + dices[2] * 36
-        + dices[3] * 216
-        + dices[4] * 1296
-        + dices[5] * 7776
+        + dices[1] * 5
+        + dices[2] * 25
+        + dices[3] * 125
+        + dices[4] * 625
+        + dices[5] * 3125
     );
 }
 
@@ -249,12 +249,12 @@ struct GameWithDiceAsIndex {
 
     std::uint64_t hash() const {
         return (
-            std::uint64_t(yahtzeeDisabled)
-            | std::uint64_t(rolls_left) << 1
-            | std::uint64_t(turns_left) << 3
-            | std::uint64_t(upper_section_score) << 7
-            | std::uint64_t(dices_idx) << 13
-            | std::uint64_t(used_categories) << 21
+            static_cast<std::uint64_t>(yahtzeeDisabled)
+            | static_cast<std::uint64_t>(rolls_left) << 1
+            | static_cast<std::uint64_t>(turns_left) << 3
+            | static_cast<std::uint64_t>(upper_section_score) << 7
+            | static_cast<std::uint64_t>(dices_idx) << 13
+            | static_cast<std::uint64_t>(used_categories) << 21
         );
     }
 };
