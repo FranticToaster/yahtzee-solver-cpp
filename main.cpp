@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <iomanip>
 #include <cmath>
+#include <iterator>
 
 
 
@@ -236,7 +237,7 @@ struct Game {
     int upper_section_score = 0;
     Dices dices = {0, 0, 0, 0, 0, 0};
     int rolls_left = 3;
-    bool yahtzeeDisabled = false; // occurs when 0 is scored in yahtzee
+    bool yahtzee_disabled = false; // occurs when 0 is scored in yahtzee
 };
 
 struct GameWithDiceAsIndex {
@@ -245,11 +246,11 @@ struct GameWithDiceAsIndex {
     int upper_section_score = 0;
     int dices_idx = 255;
     int rolls_left = 3;
-    bool yahtzeeDisabled = false;
+    bool yahtzee_disabled = false;
 
     std::uint64_t hash() const {
         return (
-            static_cast<std::uint64_t>(yahtzeeDisabled)
+            static_cast<std::uint64_t>(yahtzee_disabled)
             | static_cast<std::uint64_t>(rolls_left) << 1
             | static_cast<std::uint64_t>(turns_left) << 3
             | static_cast<std::uint64_t>(upper_section_score) << 7
@@ -356,55 +357,78 @@ int getMoveScore (
 
 auto claimCategory (
     Game game,
-    Category category
+    Category category,
+    bool isJoker = false
 ) {
-    int upperSectionScore = game.upper_section_score;
-
     int moveScore = getMoveScore(game, category, game.dices);
     if (category <= SIXES) {
-        int previousScore = upperSectionScore;
-        upperSectionScore += moveScore;
+        int previousScore = game.upper_section_score;
+        game.upper_section_score += moveScore;
 
-        if (upperSectionScore >= 63) {
-            upperSectionScore = 63;
+        if (game.upper_section_score >= 63) {
+            game.upper_section_score = 63;
             if (previousScore < 63) moveScore += 35;
         }
     }
 
-    bool yahtzeeDisabled = (
-        game.yahtzeeDisabled
-        || (category == YAHTZEE && moveScore == 0)
-    );
+
+    if (!game.yahtzee_disabled) {
+        game.yahtzee_disabled = (category == YAHTZEE && moveScore == 0);
+    }
+    game.used_categories |= (1 << category);
+    if (!isJoker) game.turns_left -= 1;
+    game.rolls_left = 3;
 
 
-    int usedCategories = game.used_categories | (1 << category);
-    int turnsLeft = game.turns_left - 1;
-    int dicesIdx = 255;
-    int rollsLeft = 3;
-
-    return std::make_pair(
-        GameWithDiceAsIndex{
-            turnsLeft,
-            usedCategories,
-            upperSectionScore,
-            dicesIdx,
-            rollsLeft,
-            yahtzeeDisabled
-        },
-        moveScore
-    );
+    return std::make_pair(game, moveScore);
 }
 
 
 
 inline auto getLegalClaims(Game game) {
-    std::vector<int> categoriesAvailable;
+    std::vector<std::pair<Category, Category>> categoriesAvailable;
+
     for (int i = ONES; i < YAHTZEE; i++) {
         if (!(game.used_categories & (1 << i))) {
-            categoriesAvailable.push_back(i);
+            categoriesAvailable.emplace_back(
+                static_cast<Category>(i),
+                NONE
+            );
         }
     }
-    categoriesAvailable.push_back(YAHTZEE);
+
+    
+    if ((game.used_categories & (1 << YAHTZEE)) == 0) {
+        // first yahtzee claim
+        categoriesAvailable.emplace_back(YAHTZEE, NONE);
+    } else if (
+        auto it = std::find(game.dices.begin(), game.dices.end(), 5);
+        it != game.dices.end()
+        && !game.yahtzee_disabled
+    ) {
+        // joker rule
+        int availableUpperSectionCategory = static_cast<int>(
+            std::distance(game.dices.begin(), it)
+        );
+
+
+        if (game.used_categories & (1 << availableUpperSectionCategory)) {
+            // prioritize upper section category
+            categoriesAvailable.emplace_back(
+                YAHTZEE, 
+                static_cast<Category> (availableUpperSectionCategory)
+            );
+        } else {
+            // lower section categories
+            for (int i = SMALL_STRAIGHT; i < YAHTZEE; i++) {
+                categoriesAvailable.emplace_back(
+                    YAHTZEE,
+                    static_cast<Category> (i)
+                );
+            }
+        }
+    }
+
     return categoriesAvailable;
 }
 
