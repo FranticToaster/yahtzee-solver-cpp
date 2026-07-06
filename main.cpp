@@ -1,4 +1,5 @@
 //A single monolithic script
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <chrono>
@@ -12,6 +13,7 @@
 #include <iomanip>
 #include <cmath>
 #include <iterator>
+#include <ctime>
 
 
 
@@ -452,6 +454,7 @@ std::unordered_map<std::uint64_t, Score> cache;
 
 
 
+// remember to cache before return!
 Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
     total_nodes_evaluated += 1;
 
@@ -460,11 +463,101 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
         return 0;
     }
 
+
+    // caching stuff
     auto gameHash = gameWithDiceAsIndex.hash();
     if (auto it = cache.find(gameHash); it != cache.end()) {
+        cache_hits += 1;
         return it->second;
     }
+    cache_misses += 1;
+
+
+    // we handle this case first since we cannot claim immediately at the start of the turn,
+    // so in this case we will skip the claim best score calculation
+    if (gameWithDiceAsIndex.rolls_left == 3) {
+        Score score = 0;
+        gameWithDiceAsIndex.rolls_left = 2;
+
+        for (const auto& [rollResultIdx, probability]: rollOutcomesByIdx[5]) {
+            gameWithDiceAsIndex.dices_idx = rollResultIdx;
+            score += probability * dfs(gameWithDiceAsIndex);
+        }
+
+        cache[gameHash] = score;
+        return score;
+    }
+
+    Dices dicesValue = idxToDices[static_cast<std::size_t>(gameWithDiceAsIndex.dices_idx)];
+    Game game{
+        gameWithDiceAsIndex.turns_left,
+        gameWithDiceAsIndex.used_categories,
+        gameWithDiceAsIndex.upper_section_score,
+        dicesValue,
+        gameWithDiceAsIndex.rolls_left,
+        gameWithDiceAsIndex.yahtzee_disabled
+    };
+
+    // calculate claim first since we can choose to claim at any point in time
+    // as long as its not the start of the turn, which we already accounted for previously
+    Score best_score = -1.0;
+    for (auto categories: getLegalClaims(game)) {
+        auto [gameCopy, claimedScore] = claimCategory(game, categories.first);
+        if (categories.second != NONE) {
+            auto [tmp, jokerBonus] = claimCategory(game, categories.second);
+            gameCopy = tmp;
+            claimedScore += jokerBonus;
+        }
+
+
+        Score score = claimedScore + dfs({
+            gameCopy.turns_left,
+            gameCopy.used_categories,
+            gameCopy.upper_section_score,
+            gameWithDiceAsIndex.dices_idx, // since claimCategory returns the same dices array
+            gameCopy.rolls_left,
+            gameCopy.yahtzee_disabled
+        });
+
+        if (score > best_score) {
+            best_score = score;
+        }
+    }
+
+    if (game.rolls_left == 0) {
+        cache[gameHash] = best_score;
+        return best_score;
+    }
+
+    for (auto reroll: availableRerolls[static_cast<std::size_t>(gameWithDiceAsIndex.dices_idx)]) {
+        int sum = 0;
+        for (int e: reroll) {sum += e;}
+        auto rerollOutcomes = rollOutcomesByIdx[static_cast<std::size_t> (sum)];
+
+        Dices remainingDices;
+        for (std::size_t i = 0; i < 6; i++) {remainingDices[i] = dicesValue[i] + reroll[i];}
+        int remainingDicesIdx = dicesHashToIdx[hashDices(remainingDices)];
+        auto dicesAdditionByIdxRow = dicesAdditionByIdx[static_cast<std::size_t>(remainingDicesIdx)];
+
+        Score score = 0.0;
+        for (auto [rollResultIdx, probability]: rerollOutcomes) {
+            score += probability * dfs({
+                game.turns_left,
+                game.used_categories,
+                game.upper_section_score,
+                dicesAdditionByIdxRow[rollResultIdx],
+                game.rolls_left - 1,
+                game.yahtzee_disabled
+            });
+        }
+
+        if (score > best_score) best_score = score;
+    }
+
+    cache[gameHash] = best_score;
+    return best_score;
 }
+
 
 
 
@@ -482,11 +575,42 @@ int main() {
     auto end_time = std::chrono::steady_clock::now();
     std::chrono::duration<double> time_taken_seconds = end_time - start_time;
     logs << "Precomputation took a total of ";
-    logs << std::fixed << std::setprecision(2) << time_taken_seconds.count() << 's';
+    logs << std::fixed << std::setprecision(3) << time_taken_seconds.count() << "s.\n";
 
 
 
+    start_time = std::chrono::steady_clock::now();
+    Score score = dfs(GameWithDiceAsIndex{});
+    end_time = std::chrono::steady_clock::now();
+    time_taken_seconds = end_time - start_time;
+
+    logs << "Searched " << leaf_nodes_evaluated << " leaf nodes and " << total_nodes_evaluated << " total nodes.\n";
+    logs << "Cache hits: " << cache_hits << " . Cache misses: " << cache_misses << ".\n".
+    logs << "Took " << time_taken_seconds.count() << "s.\n";
+    logs << "Best score found: " << score << ".\n";
 
 
 
+    // getting timestamp in text format
+    auto now = std::chrono::system_clock::now();
+    std::time_t time_now = std::chrono::system_clock::to_time_t(now);
+
+    std::tm* time_info = std::localtime(&time_now);
+
+    std::ostringstream oss;
+    oss << std::put_time(time_info, "%Y-%m-%d %H-%M-%S");
+
+
+
+    // file creation & writing
+    std::ofstream outFile(oss.str());
+    if (!outFile) {
+        std::cerr << "Error opening file!" << std::endl;
+        return 1;
+    }
+
+    outFile << logs;
+    outFile.close();
+
+    return 0;
 }
