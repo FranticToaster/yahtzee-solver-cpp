@@ -117,6 +117,15 @@ auto precomputeDiceIndexes () {
         generateFreq(0, i, freq, generateFreq);
     }
 
+    // assertion
+    {
+        for (int i = 0; i < idxToDices.size(); i++) {
+            auto dices = idxToDices[static_cast<std::size_t>(i)];
+            int sum = 0; for (auto d: dices) {sum += d;}
+            assert(sum != 5 || i <= 251);
+        }
+    }
+
     return std::make_pair(idxToDices, dicesHashToIdx);
 }
 
@@ -235,12 +244,12 @@ auto precomputeDicesAdditionByIdx (
  *game
 **************************************************************************************/
 struct Game {
-    int turns_left = 13;
-    int used_categories = 0;
-    int upper_section_score = 0;
-    Dices dices = {0, 0, 0, 0, 0, 0};
-    int rolls_left = 3;
-    bool yahtzee_disabled = false; // occurs when 0 is scored in yahtzee
+    int turns_left;
+    int used_categories;
+    int upper_section_score;
+    Dices dices;
+    int rolls_left;
+    bool yahtzee_disabled; // occurs when 0 is scored in yahtzee
 };
 
 struct GameWithDiceAsIndex {
