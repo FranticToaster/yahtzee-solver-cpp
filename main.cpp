@@ -14,6 +14,7 @@
 #include <cmath>
 #include <iterator>
 #include <ctime>
+#include <algorithm>
 
 
 
@@ -585,7 +586,7 @@ int main() {
     time_taken_seconds = end_time - start_time;
 
     logs << "Searched " << leaf_nodes_evaluated << " leaf nodes and " << total_nodes_evaluated << " total nodes.\n";
-    logs << "Cache hits: " << cache_hits << " . Cache misses: " << cache_misses << ".\n".
+    logs << "Cache hits: " << cache_hits << " . Cache misses: " << cache_misses << ".\n";
     logs << "Took " << time_taken_seconds.count() << "s.\n";
     logs << "Best score found: " << score << ".\n";
 
@@ -609,7 +610,7 @@ int main() {
         return 1;
     }
 
-    outFile << logs;
+    outFile << logs.str();
     outFile.close();
 
     return 0;
