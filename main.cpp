@@ -545,7 +545,7 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
         auto rerollOutcomes = rollOutcomesByIdx[static_cast<std::size_t> (sum)];
 
         Dices remainingDices;
-        for (std::size_t i = 0; i < 6; i++) {remainingDices[i] = dicesValue[i] + reroll[i];}
+        for (std::size_t i = 0; i < 6; i++) {remainingDices[i] = dicesValue[i] - reroll[i];}
         int remainingDicesIdx = dicesHashToIdx[hashDices(remainingDices)];
         auto dicesAdditionByIdxRow = dicesAdditionByIdx[static_cast<std::size_t>(remainingDicesIdx)];
 
