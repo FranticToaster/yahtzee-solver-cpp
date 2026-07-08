@@ -74,11 +74,11 @@ const int dieWeightsSum = 21; //remember to update this if dieWeights is modifie
 auto hashDices(const Dices& dices) {
     return (
         dices[0]
-        + dices[1] * 5
-        + dices[2] * 25
-        + dices[3] * 125
-        + dices[4] * 625
-        + dices[5] * 3125
+        + dices[1] * 6
+        + dices[2] * 36
+        + dices[3] * 216
+        + dices[4] * 1296
+        + dices[5] * 7776
     );
 }
 
@@ -224,7 +224,7 @@ auto precomputeDicesAdditionByIdx (
                 sum += newDices[k];
             }
 
-            if (sum > 5){
+            if (sum != 5){
                 continue;
             }
 
