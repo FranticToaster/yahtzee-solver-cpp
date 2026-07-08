@@ -153,7 +153,7 @@ auto precomputeRollOutcomesByIdx (std::array<Dices, 462> idxToDices) {
         }
         double probability = permutations * prod_d;
 
-        table[i].push_back(rollOutcome{static_cast<int> (dicesIdx), probability});
+        table[i].emplace_back(static_cast<int> (dicesIdx), probability);
     }
 
     return table;
@@ -608,7 +608,7 @@ int main() {
     std::tm* time_info = std::localtime(&time_now);
 
     std::ostringstream oss;
-    oss << std::put_time(time_info, "%Y-%m-%d %H-%M-%S");
+    oss << std::put_time(time_info, "%Y-%m-%d_%H-%M-%S");
 
 
 
