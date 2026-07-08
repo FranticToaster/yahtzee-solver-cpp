@@ -514,7 +514,7 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
     for (auto categories: getLegalClaims(game)) {
         auto [gameCopy, claimedScore] = claimCategory(game, categories.first);
         if (categories.second != NONE) {
-            auto [tmp, jokerBonus] = claimCategory(game, categories.second);
+            auto [tmp, jokerBonus] = claimCategory(gameCopy, categories.second, true);
             gameCopy = tmp;
             claimedScore += jokerBonus;
         }
