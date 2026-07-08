@@ -253,7 +253,7 @@ struct Game {
 };
 
 struct GameWithDiceAsIndex {
-    int turns_left = 13;
+    int turns_left = 4;
     int used_categories = 0;
     int upper_section_score = 0;
     int dices_idx = 255;
@@ -453,12 +453,12 @@ std::array<std::vector<Dices>, 252> availableRerolls;
 std::array<std::array<int, 462>, 462> dicesAdditionByIdx;
 
 
-int leaf_nodes_evaluated = 0;
-int total_nodes_evaluated = 0;
+long long leaf_nodes_evaluated = 0;
+long long total_nodes_evaluated = 0;
 
 
-int cache_hits = 0;
-int cache_misses = 0;
+long long cache_hits = 0;
+long long cache_misses = 0;
 std::unordered_map<std::uint64_t, Score> cache;
 // might consider using .reserve later on
 
@@ -608,7 +608,7 @@ int main() {
     std::tm* time_info = std::localtime(&time_now);
 
     std::ostringstream oss;
-    oss << std::put_time(time_info, "%Y-%m-%d_%H-%M-%S");
+    oss << std::put_time(time_info, "%Y-%m-%d_%H-%M-%S.log");
 
 
 
