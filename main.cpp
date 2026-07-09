@@ -148,8 +148,9 @@ auto precomputeRollOutcomesByIdx (std::array<Dices, 462> idxToDices) {
         int permutations = factorials[i] / prod_i;
 
         double prod_d = 1;
-        for (int val: dices) {
-            prod_d *=  static_cast<double> (dieWeights[val]) / dieWeightsSum;
+        for (int j = 0; j < 6; j++) {
+            double tmp =  static_cast<double> (dieWeights[j]) / dieWeightsSum;
+            prod_d *= std::pow(tmp, dices[j]);
         }
         double probability = permutations * prod_d;
 
