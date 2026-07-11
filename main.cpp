@@ -24,10 +24,6 @@ std::ostringstream logs;
 
 // score type should default to int and only use float in actual solver
 using Score = double;
-const Score scoreEpsilon = 1e-9;
-inline bool scoreClose (Score a, Score b) {
-    return std::abs(a - b) <= scoreEpsilon;
-}
 
 
 /**************************************************************************************
