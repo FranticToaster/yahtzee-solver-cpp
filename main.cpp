@@ -261,10 +261,10 @@ struct GameWithDiceAsIndex {
         return (
             static_cast<std::uint64_t>(yahtzee_disabled)
             | static_cast<std::uint64_t>(rolls_left) << 1
-            | static_cast<std::uint64_t>(turns_left) << 3
-            | static_cast<std::uint64_t>(upper_section_score) << 7
-            | static_cast<std::uint64_t>(dices_idx) << 13
-            | static_cast<std::uint64_t>(used_categories) << 21
+            // turns_left can be determined using used_categories
+            | static_cast<std::uint64_t>(upper_section_score) << 3
+            | static_cast<std::uint64_t>(dices_idx) << 9
+            | static_cast<std::uint64_t>(used_categories) << 17
         );
     }
 };
