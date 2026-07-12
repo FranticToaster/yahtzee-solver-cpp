@@ -53,10 +53,10 @@ using Dices = std::array<int, 6>;
 /**************************************************************************************
  * config
 **************************************************************************************/
-const std::array<int, 13> constScoreCategories = {0,0,0,0,0,0,30,40,0,0,25,0,0};
-const bool yahtzeeBonus = false;
-const std::array<int, 6> dieWeights = {6, 5, 4, 3, 2, 1};
-const int dieWeightsSum = 21; //remember to update this if dieWeights is modified!!!!!!!!
+constexpr std::array<int, 13> constScoreCategories = {0,0,0,0,0,0,30,40,0,0,25,0,0};
+constexpr bool yahtzeeBonus = true;
+constexpr std::array<int, 6> dieWeights = {6, 5, 4, 3, 2, 1};
+constexpr int dieWeightsSum = 21; //remember to update this if dieWeights is modified!!!!!!!!
 //                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
@@ -250,7 +250,7 @@ struct Game {
 };
 
 struct GameWithDiceAsIndex {
-    int turns_left = 4;
+    int turns_left = 13;
     int used_categories = 0;
     int upper_section_score = 0;
     int dices_idx = 255;
@@ -568,7 +568,25 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
 
 
 
-int main() {
+extern "C" __declspec(dllexport) int run_main() {
+    //log cfg
+    logs << "Config: \n";
+    logs << "ConstScoreCategories: ";
+    for (auto e: constScoreCategories) logs << e;
+    logs << "\n";
+    logs << "Yahtzee Bonus: " << std::boolalpha << yahtzeeBonus << "\n";
+    logs << "Die Weights: ";
+    for (auto e: dieWeights) logs << e;
+    logs << "\n";
+    logs << "Die weights sum: " << dieWeightsSum;
+
+    {
+        int sum = 0;
+        for (int e: dieWeights) sum += e;
+        assert(sum == dieWeightsSum);
+    }
+
+
     //init
     logs << "Precomputation started.\n";
     auto start_time = std::chrono::steady_clock::now();
