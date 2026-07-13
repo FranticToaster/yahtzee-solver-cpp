@@ -456,7 +456,7 @@ long long total_nodes_evaluated = 0;
 
 long long cache_hits = 0;
 long long cache_misses = 0;
-std::unordered_map<std::uint64_t, Score> cache;
+std::unordered_map<int, Score> cache;
 // might consider using .reserve later on
 
 
@@ -491,7 +491,7 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
             score += probability * dfs(gameWithDiceAsIndex);
         }
 
-        cache[gameHash] = score;
+        cache.emplace(gameHash, score);
         return score;
     }
 
@@ -532,7 +532,7 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
     }
 
     if (game.rolls_left == 0) {
-        cache[gameHash] = best_score;
+        cache.emplace(gameHash, best_score);
         return best_score;
     }
 
@@ -561,14 +561,14 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
         if (score > best_score) best_score = score;
     }
 
-    cache[gameHash] = best_score;
+    cache.emplace(gameHash, best_score);
     return best_score;
 }
 
 
 
 
-extern "C" __declspec(dllexport) int run_main() {
+int main() {
     //log cfg
     logs << "Config: \n";
     logs << "ConstScoreCategories: ";
@@ -578,7 +578,7 @@ extern "C" __declspec(dllexport) int run_main() {
     logs << "Die Weights: ";
     for (auto e: dieWeights) logs << e;
     logs << "\n";
-    logs << "Die weights sum: " << dieWeightsSum;
+    logs << "Die weights sum: " << dieWeightsSum << "\n\n";
 
     {
         int sum = 0;
