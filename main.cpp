@@ -53,10 +53,10 @@ using Dices = std::array<int, 6>;
 /**************************************************************************************
  * config
 **************************************************************************************/
-constexpr std::array<int, 13> constScoreCategories = {0,0,0,0,0,0,30,40,0,0,25,0,0};
-constexpr bool yahtzeeBonus = true;
-constexpr std::array<int, 6> dieWeights = {6, 5, 4, 3, 2, 1};
-constexpr int dieWeightsSum = 21; //remember to update this if dieWeights is modified!!!!!!!!
+constexpr std::array<int, 13> constScoreCategories = {0,0,0,0,0,0,15,30,0,0,0,0,0};
+constexpr bool yahtzeeBonus = false;
+constexpr std::array<int, 6> dieWeights = {1, 1, 1, 1, 1, 1};
+constexpr int dieWeightsSum = 6; //remember to update this if dieWeights is modified!!!!!!!!
 //                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
@@ -572,11 +572,11 @@ int main() {
     //log cfg
     logs << "Config: \n";
     logs << "ConstScoreCategories: ";
-    for (auto e: constScoreCategories) logs << e;
+    for (auto e: constScoreCategories) logs << e << " ";
     logs << "\n";
     logs << "Yahtzee Bonus: " << std::boolalpha << yahtzeeBonus << "\n";
     logs << "Die Weights: ";
-    for (auto e: dieWeights) logs << e;
+    for (auto e: dieWeights) logs << e << " ";
     logs << "\n";
     logs << "Die weights sum: " << dieWeightsSum << "\n\n";
 
