@@ -424,7 +424,7 @@ inline auto getLegalClaims(Game game) {
         );
 
 
-        if (game.used_categories & (1 << availableUpperSectionCategory)) {
+        if ((game.used_categories & (1 << availableUpperSectionCategory)) == 0) {
             // prioritize upper section category
             categoriesAvailable.emplace_back(
                 YAHTZEE, 
@@ -433,6 +433,7 @@ inline auto getLegalClaims(Game game) {
         } else {
             // lower section categories
             for (int i = SMALL_STRAIGHT; i < YAHTZEE; i++) {
+                if (game.used_categories & (1 << i)) continue; // already used
                 categoriesAvailable.emplace_back(
                     YAHTZEE,
                     static_cast<Category> (i)
@@ -554,7 +555,7 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
     cache_misses += 1;
 
 
-    if (cache_misses % 1'000'000 == 0) save();
+    if (cache_misses % 40'000'000 == 0) save();
 
 
     // we handle this case first since we cannot claim immediately at the start of the turn,
@@ -647,7 +648,7 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
 
 int main() {
     load();
-    
+
     //log cfg
     logs << "Config: \n";
     logs << "ConstScoreCategories: ";
