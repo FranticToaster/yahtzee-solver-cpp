@@ -16,6 +16,9 @@
 #include <ctime>
 #include <algorithm>
 
+#include <cereal/archives/binary.hpp>
+#include <cereal/types/unordered_map.hpp>
+
 
 
 std::ostringstream logs;
@@ -250,7 +253,7 @@ struct Game {
 };
 
 struct GameWithDiceAsIndex {
-    int turns_left = 13;
+    int turns_left = 4;
     int used_categories = 0;
     int upper_section_score = 0;
     int dices_idx = 255;
@@ -443,6 +446,25 @@ inline auto getLegalClaims(Game game) {
 
 
 
+
+inline std::string getTimeStampStr(
+    std::string fmt = "%Y-%m-%d_%H-%M-%S"
+) {
+    auto now = std::chrono::system_clock::now();
+    std::time_t time_now = std::chrono::system_clock::to_time_t(now);
+
+    std::tm* time_info = std::localtime(&time_now);
+
+    std::ostringstream oss;
+    oss << std::put_time(time_info, fmt.c_str());
+    return oss.str();
+}
+
+
+
+std::chrono::steady_clock::time_point solver_start_time;
+
+
 std::array<std::array<int, 6>, 462> idxToDices;
 std::unordered_map<int, int> dicesHashToIdx;
 std::array<std::vector<rollOutcome>, 6> rollOutcomesByIdx;
@@ -458,6 +480,58 @@ long long cache_hits = 0;
 long long cache_misses = 0;
 std::unordered_map<int, Score> cache;
 // might consider using .reserve later on
+
+
+// 0s if not loaded from checkpoint
+double checkpoint_runtime = 0.0;
+
+
+
+inline void save() {
+    std::ofstream os("checkpoint.bin", std::ios::binary);
+
+    cereal::BinaryOutputArchive archive(os);
+
+    auto save_time = std::chrono::steady_clock::now();
+    std::chrono::duration<double> time_taken_seconds = save_time - solver_start_time;
+
+    archive(
+        cache,
+        leaf_nodes_evaluated,
+        total_nodes_evaluated,
+        cache_hits,
+        cache_misses,
+        checkpoint_runtime + time_taken_seconds.count()
+    );
+
+    os.close();
+
+    logs << "Saved checkpoint successfully at " << getTimeStampStr() << "!\n";
+}
+
+
+inline void load() {
+    std::ifstream is("checkpoint.bin", std::ios::binary);
+
+    if (is.fail()) return;
+
+    cereal::BinaryInputArchive archive(is);
+
+    archive(
+        cache,
+        leaf_nodes_evaluated,
+        total_nodes_evaluated,
+        cache_hits,
+        cache_misses,
+        checkpoint_runtime
+    );
+
+    logs << "Successfully loaded from checkpoint!\n";
+    logs << "Loaded data:\n";
+    logs << "Leaf nodes: " << leaf_nodes_evaluated << ". Total nodes: " << total_nodes_evaluated << ".\n";
+    logs << "Cache hits: " << cache_hits << " . Cache misses: " << cache_misses << ".\n";
+    logs << "Checkpoint runtime: " << checkpoint_runtime << ".\n\n";
+}
 
 
 
@@ -478,6 +552,9 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
         return it->second;
     }
     cache_misses += 1;
+
+
+    if (cache_misses % 1'000'000 == 0) save();
 
 
     // we handle this case first since we cannot claim immediately at the start of the turn,
@@ -539,12 +616,12 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
     for (auto reroll: availableRerolls[static_cast<std::size_t>(gameWithDiceAsIndex.dices_idx)]) {
         int sum = 0;
         for (int e: reroll) {sum += e;}
-        auto rerollOutcomes = rollOutcomesByIdx[static_cast<std::size_t> (sum)];
+        const auto& rerollOutcomes = rollOutcomesByIdx[static_cast<std::size_t> (sum)];
 
         Dices remainingDices;
         for (std::size_t i = 0; i < 6; i++) {remainingDices[i] = dicesValue[i] - reroll[i];}
         int remainingDicesIdx = dicesHashToIdx[hashDices(remainingDices)];
-        auto dicesAdditionByIdxRow = dicesAdditionByIdx[static_cast<std::size_t>(remainingDicesIdx)];
+        const auto& dicesAdditionByIdxRow = dicesAdditionByIdx[static_cast<std::size_t>(remainingDicesIdx)];
 
         Score score = 0.0;
         for (auto [rollResultIdx, probability]: rerollOutcomes) {
@@ -569,6 +646,8 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
 
 
 int main() {
+    load();
+    
     //log cfg
     logs << "Config: \n";
     logs << "ConstScoreCategories: ";
@@ -580,6 +659,8 @@ int main() {
     logs << "\n";
     logs << "Die weights sum: " << dieWeightsSum << "\n\n";
 
+
+
     {
         int sum = 0;
         for (int e: dieWeights) sum += e;
@@ -588,54 +669,49 @@ int main() {
 
 
     //init
-    logs << "Precomputation started.\n";
-    auto start_time = std::chrono::steady_clock::now();
+    {
+        logs << "Precomputation started.\n";
+        solver_start_time = std::chrono::steady_clock::now();
 
-    std::tie(idxToDices, dicesHashToIdx) = precomputeDiceIndexes();
-    rollOutcomesByIdx = precomputeRollOutcomesByIdx(idxToDices);
-    availableRerolls = precomputeAvailableRerollsByIdx(idxToDices);
-    dicesAdditionByIdx = precomputeDicesAdditionByIdx(idxToDices, dicesHashToIdx);
+        std::tie(idxToDices, dicesHashToIdx) = precomputeDiceIndexes();
+        rollOutcomesByIdx = precomputeRollOutcomesByIdx(idxToDices);
+        availableRerolls = precomputeAvailableRerollsByIdx(idxToDices);
+        dicesAdditionByIdx = precomputeDicesAdditionByIdx(idxToDices, dicesHashToIdx);
 
-    logs << "Precomputation complete.\n";
-    auto end_time = std::chrono::steady_clock::now();
-    std::chrono::duration<double> time_taken_seconds = end_time - start_time;
-    logs << "Precomputation took a total of ";
-    logs << std::fixed << std::setprecision(3) << time_taken_seconds.count() << "s.\n";
-
-
-
-    start_time = std::chrono::steady_clock::now();
-    Score score = dfs(GameWithDiceAsIndex{});
-    end_time = std::chrono::steady_clock::now();
-    time_taken_seconds = end_time - start_time;
-
-    logs << "Searched " << leaf_nodes_evaluated << " leaf nodes and " << total_nodes_evaluated << " total nodes.\n";
-    logs << "Cache hits: " << cache_hits << " . Cache misses: " << cache_misses << ".\n";
-    logs << "Took " << time_taken_seconds.count() << "s.\n";
-    logs << "Best score found: " << score << ".\n";
-
-
-
-    // getting timestamp in text format
-    auto now = std::chrono::system_clock::now();
-    std::time_t time_now = std::chrono::system_clock::to_time_t(now);
-
-    std::tm* time_info = std::localtime(&time_now);
-
-    std::ostringstream oss;
-    oss << std::put_time(time_info, "%Y-%m-%d_%H-%M-%S.log");
-
-
-
-    // file creation & writing
-    std::ofstream outFile(oss.str());
-    if (!outFile) {
-        std::cerr << "Error opening file!" << std::endl;
-        return 1;
+        auto end_time = std::chrono::steady_clock::now();
+        std::chrono::duration<double> time_taken_seconds = end_time - solver_start_time;
+        logs << "Precomputation took a total of ";
+        logs << std::fixed << std::setprecision(5) << checkpoint_runtime + time_taken_seconds.count() << "s.\n\n";
     }
 
-    outFile << logs.str();
-    outFile.close();
+
+
+
+    {
+        auto start_time = std::chrono::steady_clock::now();
+        Score score = dfs(GameWithDiceAsIndex{});
+        auto end_time = std::chrono::steady_clock::now();
+        std::chrono::duration<double> time_taken_seconds = end_time - start_time;
+
+        logs << "Searched " << leaf_nodes_evaluated << " leaf nodes and " << total_nodes_evaluated << " total nodes.\n";
+        logs << "Cache hits: " << cache_hits << " . Cache misses: " << cache_misses << ".\n";
+        logs << "Took " << time_taken_seconds.count() << "s.\n";
+        logs << "Best score found: " << score << ".\n\n";
+    }
+
+
+
+    {
+        // file creation & writing
+        std::ofstream outFile(getTimeStampStr() + ".log");
+        if (!outFile) {
+            std::cerr << "Error opening file!" << std::endl;
+            return 1;
+        }
+
+        outFile << logs.str();
+        outFile.close();
+    }
 
     return 0;
 }

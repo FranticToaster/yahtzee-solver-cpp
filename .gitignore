@@ -1,5 +1,7 @@
 .vscode
 *.log
+checkpoint.bin
+include
 
 # Prerequisites
 *.d
