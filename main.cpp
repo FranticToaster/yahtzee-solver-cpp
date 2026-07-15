@@ -56,8 +56,8 @@ using Dices = std::array<int, 6>;
 /**************************************************************************************
  * config
 **************************************************************************************/
-constexpr std::array<int, 13> constScoreCategories = {0,0,0,0,0,0,15,30,0,0,0,0,0};
-constexpr bool yahtzeeBonus = false;
+constexpr std::array<int, 13> constScoreCategories = {0,0,0,0,0,0,30,40,0,0,25,0,0};
+constexpr bool yahtzeeBonus = true;
 constexpr std::array<int, 6> dieWeights = {1, 1, 1, 1, 1, 1};
 constexpr int dieWeightsSum = 6; //remember to update this if dieWeights is modified!!!!!!!!
 //                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -334,9 +334,10 @@ bool moveFitsReq (
 int getMoveScore (
     Game game,
     Category category,
-    Dices dices
+    Dices dices,
+    bool isJoker = false // joker bypasses requirement check
 ) {
-    if (!moveFitsReq(category, game)) {
+    if (!isJoker && !moveFitsReq(category, game)) {
         return 0;
     }
 
@@ -372,7 +373,7 @@ auto claimCategory (
     Category category,
     bool isJoker = false
 ) {
-    int moveScore = getMoveScore(game, category, game.dices);
+    int moveScore = getMoveScore(game, category, game.dices, isJoker);
     if (category <= SIXES) {
         int previousScore = game.upper_section_score;
         game.upper_section_score += moveScore;
@@ -387,7 +388,9 @@ auto claimCategory (
     if (!game.yahtzee_disabled) {
         game.yahtzee_disabled = (category == YAHTZEE && moveScore == 0);
     }
+
     game.used_categories |= (1 << category);
+
     if (!isJoker) game.turns_left -= 1;
     game.rolls_left = 3;
 
@@ -432,12 +435,29 @@ inline auto getLegalClaims(Game game) {
             );
         } else {
             // lower section categories
+            int validLowerCategoryCount = 0;
             for (int i = SMALL_STRAIGHT; i < YAHTZEE; i++) {
                 if (game.used_categories & (1 << i)) continue; // already used
+                validLowerCategoryCount += 1;
                 categoriesAvailable.emplace_back(
                     YAHTZEE,
                     static_cast<Category> (i)
                 );
+            }
+
+            // if no lowercategories available for wildcard, score 0 in any upper category
+            if (validLowerCategoryCount == 0){
+                for (int i = ONES; i <= SIXES; i++) {
+                    if (
+                        i != availableUpperSectionCategory
+                        && (game.used_categories & (1 << i)) == 0
+                    ) {
+                        categoriesAvailable.emplace_back(
+                            YAHTZEE,
+                            static_cast<Category>(i)
+                        );
+                    }
+                }
             }
         }
     }
