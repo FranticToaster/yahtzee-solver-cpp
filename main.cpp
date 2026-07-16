@@ -56,6 +56,10 @@ using Dices = std::array<int, 6>;
 /**************************************************************************************
  * config
 **************************************************************************************/
+// Increment when solver rules change so prior decision-tree checkpoints are ignored.
+constexpr int solverCacheVersion = 2;
+
+
 constexpr std::array<int, 13> constScoreCategories = {0,0,0,0,0,0,30,40,0,0,25,0,0};
 constexpr bool yahtzeeBonus = true;
 constexpr std::array<int, 6> dieWeights = {1, 1, 1, 1, 1, 1};
@@ -253,7 +257,7 @@ struct Game {
 };
 
 struct GameWithDiceAsIndex {
-    int turns_left = 4;
+    int turns_left = 13;
     int used_categories = 0;
     int upper_section_score = 0;
     int dices_idx = 255;
@@ -319,6 +323,8 @@ bool moveFitsReq (
     } else if (category == CHANCE) {
         return true;
     } else if (category == YAHTZEE) {
+        if (game.yahtzee_disabled) return false;
+        
         for (int count: dices) {
             if (count == 5) return true;
         }
@@ -419,7 +425,6 @@ inline auto getLegalClaims(Game game) {
     } else if (
         auto it = std::find(game.dices.begin(), game.dices.end(), 5);
         it != game.dices.end()
-        && !game.yahtzee_disabled
     ) {
         // joker rule
         int availableUpperSectionCategory = static_cast<int>(
@@ -509,7 +514,7 @@ double checkpoint_runtime = 0.0;
 
 
 inline void save() {
-    std::ofstream os("checkpoint.bin", std::ios::binary);
+    std::ofstream os("checkpoint-v" + std::to_string(solverCacheVersion) + ".bin", std::ios::binary);
 
     cereal::BinaryOutputArchive archive(os);
 
@@ -532,7 +537,7 @@ inline void save() {
 
 
 inline void load() {
-    std::ifstream is("checkpoint.bin", std::ios::binary);
+    std::ifstream is("checkpoint-v" + std::to_string(solverCacheVersion) + ".bin", std::ios::binary);
 
     if (is.fail()) return;
 
