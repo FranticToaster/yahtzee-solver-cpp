@@ -57,7 +57,7 @@ using Dices = std::array<int, 6>;
  * config
 **************************************************************************************/
 // Increment when solver rules change so prior decision-tree checkpoints are ignored.
-constexpr int solverCacheVersion = 2;
+constexpr int solverCacheVersion = 3;
 
 
 constexpr std::array<int, 13> constScoreCategories = {0,0,0,0,0,0,30,40,0,0,25,0,0};
