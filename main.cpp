@@ -324,7 +324,7 @@ bool moveFitsReq (
         return true;
     } else if (category == YAHTZEE) {
         if (game.yahtzee_disabled) return false;
-        
+
         for (int count: dices) {
             if (count == 5) return true;
         }
@@ -409,22 +409,28 @@ auto claimCategory (
 inline auto getLegalClaims(Game game) {
     std::vector<std::pair<Category, Category>> categoriesAvailable;
 
-    for (int i = ONES; i < YAHTZEE; i++) {
-        if (!(game.used_categories & (1 << i))) {
-            categoriesAvailable.emplace_back(
-                static_cast<Category>(i),
-                NONE
-            );
+
+    auto fillOpenCategories = [&game, &categoriesAvailable] () {
+        for (int i = ONES; i < YAHTZEE; i++) {
+            if (!(game.used_categories & (1 << i))) {
+                categoriesAvailable.emplace_back(
+                    static_cast<Category>(i),
+                    NONE
+                );
+            }
         }
-    }
+    };
+
 
     
     if ((game.used_categories & (1 << YAHTZEE)) == 0) {
         // first yahtzee claim
         categoriesAvailable.emplace_back(YAHTZEE, NONE);
+        fillOpenCategories();
     } else if (
         auto it = std::find(game.dices.begin(), game.dices.end(), 5);
         it != game.dices.end()
+        && !game.yahtzee_disabled
     ) {
         // joker rule
         int availableUpperSectionCategory = static_cast<int>(
@@ -465,6 +471,8 @@ inline auto getLegalClaims(Game game) {
                 }
             }
         }
+    } else {
+        fillOpenCategories();
     }
 
     return categoriesAvailable;
@@ -671,7 +679,7 @@ Score dfs(GameWithDiceAsIndex gameWithDiceAsIndex) {
 
 
 
-int main() {
+extern "C" __declspec(dllexport) int run_main() {
     load();
 
     //log cfg
@@ -707,7 +715,7 @@ int main() {
         auto end_time = std::chrono::steady_clock::now();
         std::chrono::duration<double> time_taken_seconds = end_time - solver_start_time;
         logs << "Precomputation took a total of ";
-        logs << std::fixed << std::setprecision(5) << checkpoint_runtime + time_taken_seconds.count() << "s.\n\n";
+        logs << std::fixed << std::setprecision(5) << time_taken_seconds.count() << "s.\n\n";
     }
 
 
