@@ -430,7 +430,6 @@ inline auto getLegalClaims(Game game) {
     } else if (
         auto it = std::find(game.dices.begin(), game.dices.end(), 5);
         it != game.dices.end()
-        && !game.yahtzee_disabled
     ) {
         // joker rule
         int availableUpperSectionCategory = static_cast<int>(
