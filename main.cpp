@@ -729,7 +729,7 @@ extern "C" __declspec(dllexport) int run_main() {
         logs << "Searched " << leaf_nodes_evaluated << " leaf nodes and " << total_nodes_evaluated << " total nodes.\n";
         logs << "Cache hits: " << cache_hits << " . Cache misses: " << cache_misses << ".\n";
         logs << "Took " << time_taken_seconds.count() << "s.\n";
-        logs << "Best score found: " << score << ".\n\n";
+        logs << "Best score found: " << std::setprecision(10) << score << ".\n\n";
     }
 
 
